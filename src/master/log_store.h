@@ -38,6 +38,7 @@ private:
         std::string meta_path;
     };
 
+    bool IsPathWithinRoot(const std::string& path) const;
     Paths PathsForTask(const std::string& task_id) const;
     void EnsureLogDir(const std::string& dir) const;
     void RefreshMetadata(const std::string& task_id,

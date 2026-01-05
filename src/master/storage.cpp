@@ -380,6 +380,7 @@ std::optional<std::vector<TaskDispatch>> Storage::PollTasksForAgent(
     tx.exec_params("UPDATE agents SET last_heartbeat = NOW() WHERE agent_id = $1", agent_id);
 
     if (free_slots <= 0) {
+        tx.commit();
         return std::vector<TaskDispatch>{};
     }
 

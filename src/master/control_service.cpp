@@ -88,6 +88,37 @@ bool IsValidTaskState(const std::string& state) {
            lower == "failed" || lower == "canceled";
 }
 
+bool IsValidTaskId(const std::string& task_id) {
+    if (task_id.empty() || task_id.size() > 128) {
+        return false;
+    }
+    for (char c : task_id) {
+        if (!(std::isalnum(static_cast<unsigned char>(c)) || c == '-' || c == '_')) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool IsValidTaskStateTransition(const std::string& from, const std::string& to) {
+    std::string from_lower = from;
+    std::string to_lower = to;
+    std::transform(from_lower.begin(), from_lower.end(), from_lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    std::transform(to_lower.begin(), to_lower.end(), to_lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (from_lower == to_lower) {
+        return true;
+    }
+    if (from_lower == "queued") {
+        return to_lower == "running" || to_lower == "canceled";
+    }
+    if (from_lower == "running") {
+        return to_lower == "succeeded" || to_lower == "failed" || to_lower == "canceled";
+    }
+    return false;
+}
+
 }  // namespace
 
 ControlService::ControlService(MasterConfig config, Storage storage, LogStore log_store)
@@ -254,6 +285,10 @@ void ControlService::RegisterRoutes() {
 
         TaskInput task;
         task.task_id = body["task_id"].get<std::string>();
+        if (!IsValidTaskId(task.task_id)) {
+            SetJsonResponse(res, MakeError("BAD_REQUEST", "Invalid task_id"), 400);
+            return;
+        }
         task.command = body["command"].get<std::string>();
         task.args = (body.contains("args") && body["args"].is_array()) ? body["args"] : json::array();
         task.env = (body.contains("env") && body["env"].is_object()) ? body["env"] : json::object();
@@ -292,6 +327,10 @@ void ControlService::RegisterRoutes() {
     server_->Get(R"(/api/v1/tasks/([^/]+))",
                  [this](const httplib::Request& req, httplib::Response& res) {
         const std::string task_id = req.matches[1];
+        if (!IsValidTaskId(task_id)) {
+            SetJsonResponse(res, MakeError("BAD_REQUEST", "Invalid task_id"), 400);
+            return;
+        }
         std::optional<TaskRecord> task;
         try {
             task = storage_.GetTask(task_id);
@@ -367,6 +406,10 @@ void ControlService::RegisterRoutes() {
     server_->Post(R"(/api/v1/tasks/([^/]+)/status)",
                   [this](const httplib::Request& req, httplib::Response& res) {
         const std::string task_id = req.matches[1];
+        if (!IsValidTaskId(task_id)) {
+            SetJsonResponse(res, MakeError("BAD_REQUEST", "Invalid task_id"), 400);
+            return;
+        }
         json body;
         std::string error;
         if (!ParseJsonBody(req, &body, &error)) {
@@ -382,6 +425,26 @@ void ControlService::RegisterRoutes() {
         std::string state = body["state"].get<std::string>();
         if (!IsValidTaskState(state)) {
             SetJsonResponse(res, MakeError("BAD_REQUEST", "Invalid task state"), 400);
+            return;
+        }
+
+        std::optional<TaskRecord> current;
+        try {
+            current = storage_.GetTask(task_id);
+        } catch (const std::exception& ex) {
+            SetJsonResponse(res, MakeError("DB_ERROR", ex.what()), 500);
+            return;
+        }
+        if (!current) {
+            SetJsonResponse(res, MakeError("TASK_NOT_FOUND", "Task not found",
+                                           {{"task_id", task_id}}), 404);
+            return;
+        }
+        if (!IsValidTaskStateTransition(current->state, state)) {
+            SetJsonResponse(res, MakeError("INVALID_STATE_TRANSITION",
+                                           "Invalid task state transition",
+                                           {{"from", current->state}, {"to", state}}),
+                            409);
             return;
         }
 
@@ -421,6 +484,10 @@ void ControlService::RegisterRoutes() {
     server_->Post(R"(/api/v1/tasks/([^/]+)/cancel)",
                   [this](const httplib::Request& req, httplib::Response& res) {
         const std::string task_id = req.matches[1];
+        if (!IsValidTaskId(task_id)) {
+            SetJsonResponse(res, MakeError("BAD_REQUEST", "Invalid task_id"), 400);
+            return;
+        }
         CancelTaskResult result;
         try {
             result = storage_.CancelTask(task_id);
@@ -510,6 +577,10 @@ void ControlService::RegisterRoutes() {
     server_->Get(R"(/api/v1/tasks/([^/]+)/logs)",
                  [this](const httplib::Request& req, httplib::Response& res) {
         const std::string task_id = req.matches[1];
+        if (!IsValidTaskId(task_id)) {
+            SetJsonResponse(res, MakeError("BAD_REQUEST", "Invalid task_id"), 400);
+            return;
+        }
         std::string stream = GetQueryParam(req, "stream").value_or("stdout");
         if (stream != "stdout" && stream != "stderr") {
             SetJsonResponse(res, MakeError("BAD_REQUEST", "Invalid stream"), 400);
@@ -530,6 +601,10 @@ void ControlService::RegisterRoutes() {
     server_->Get(R"(/api/v1/tasks/([^/]+)/logs:tail)",
                  [this](const httplib::Request& req, httplib::Response& res) {
         const std::string task_id = req.matches[1];
+        if (!IsValidTaskId(task_id)) {
+            SetJsonResponse(res, MakeError("BAD_REQUEST", "Invalid task_id"), 400);
+            return;
+        }
         std::string stream = GetQueryParam(req, "stream").value_or("stdout");
         if (stream != "stdout" && stream != "stderr") {
             SetJsonResponse(res, MakeError("BAD_REQUEST", "Invalid stream"), 400);

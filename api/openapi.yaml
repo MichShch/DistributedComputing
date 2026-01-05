@@ -1,0 +1,535 @@
+openapi: 3.0.3
+info:
+  title: Distributed Computing Control API
+  version: 1.0.0
+servers:
+  - url: /api/v1
+paths:
+  /agents:
+    get:
+      summary: List agents
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [idle, busy, offline]
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Agent list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentListResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /agents/{agent_id}:
+    put:
+      summary: Register agent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterAgentRequest'
+      responses:
+        '200':
+          description: Registration result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterAgentResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+    get:
+      summary: Get agent details
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      responses:
+        '200':
+          description: Agent details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+  /agents/{agent_id}/heartbeat:
+    post:
+      summary: Agent heartbeat
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatRequest'
+      responses:
+        '200':
+          description: Heartbeat accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+  /agents/{agent_id}/tasks:poll:
+    post:
+      summary: Poll tasks for agent
+      parameters:
+        - $ref: '#/components/parameters/AgentId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PollTasksRequest'
+      responses:
+        '200':
+          description: Task list for execution
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PollTasksResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+  /tasks:
+    post:
+      summary: Submit task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitTaskRequest'
+      responses:
+        '201':
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmitTaskResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+        '422':
+          $ref: '#/components/responses/ErrorResponse'
+    get:
+      summary: List tasks
+      parameters:
+        - in: query
+          name: state
+          schema:
+            type: string
+            enum: [queued, running, succeeded, failed, canceled]
+        - in: query
+          name: agent_id
+          schema:
+            type: string
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            default: 50
+        - in: query
+          name: offset
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Task list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListResponse'
+        '400':
+          $ref: '#/components/responses/ErrorResponse'
+  /tasks/{task_id}:
+    get:
+      summary: Get task details
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+  /tasks/{task_id}/cancel:
+    post:
+      summary: Cancel task
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      responses:
+        '200':
+          description: Cancel accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+        '409':
+          $ref: '#/components/responses/ErrorResponse'
+  /tasks/{task_id}/status:
+    post:
+      summary: Report task status
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskStatusRequest'
+      responses:
+        '200':
+          description: Status accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+  /tasks/{task_id}/logs:
+    get:
+      summary: Get task logs
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - in: query
+          name: stream
+          required: true
+          schema:
+            type: string
+            enum: [stdout, stderr]
+      responses:
+        '200':
+          description: Log content
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+  /tasks/{task_id}/logs:tail:
+    get:
+      summary: Tail task logs
+      parameters:
+        - $ref: '#/components/parameters/TaskId'
+        - in: query
+          name: stream
+          required: true
+          schema:
+            type: string
+            enum: [stdout, stderr]
+        - in: query
+          name: from
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Chunked log stream
+          content:
+            text/plain:
+              schema:
+                type: string
+        '404':
+          $ref: '#/components/responses/ErrorResponse'
+components:
+  parameters:
+    AgentId:
+      in: path
+      name: agent_id
+      required: true
+      schema:
+        type: string
+    TaskId:
+      in: path
+      name: task_id
+      required: true
+      schema:
+        type: string
+  responses:
+    ErrorResponse:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+  schemas:
+    StatusResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+              additionalProperties: true
+    RegisterAgentRequest:
+      type: object
+      required: [os, version, resources]
+      properties:
+        os:
+          type: string
+          enum: [linux, windows]
+        version:
+          type: string
+        resources:
+          $ref: '#/components/schemas/Resources'
+    RegisterAgentResponse:
+      type: object
+      required: [status, heartbeat_interval_sec]
+      properties:
+        status:
+          type: string
+          enum: [ok, error]
+        heartbeat_interval_sec:
+          type: integer
+          minimum: 1
+    HeartbeatRequest:
+      type: object
+      required: [status, timestamp]
+      properties:
+        status:
+          type: string
+          enum: [idle, busy]
+        running_tasks:
+          type: array
+          items:
+            type: string
+        free_slots:
+          type: integer
+          minimum: 0
+        timestamp:
+          type: string
+          format: date-time
+    PollTasksRequest:
+      type: object
+      required: [free_slots]
+      properties:
+        free_slots:
+          type: integer
+          minimum: 0
+    PollTasksResponse:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/TaskAssignment'
+    TaskStatusRequest:
+      type: object
+      required: [state]
+      properties:
+        state:
+          type: string
+          enum: [running, succeeded, failed, canceled]
+        exit_code:
+          type: integer
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        error_message:
+          type: string
+    SubmitTaskRequest:
+      type: object
+      required: [command]
+      properties:
+        command:
+          type: string
+        args:
+          type: array
+          items:
+            type: string
+        env:
+          type: object
+          additionalProperties:
+            type: string
+        timeout_sec:
+          type: integer
+          minimum: 1
+        constraints:
+          $ref: '#/components/schemas/TaskConstraints'
+    SubmitTaskResponse:
+      type: object
+      required: [task_id]
+      properties:
+        task_id:
+          type: string
+    TaskListResponse:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+    AgentListResponse:
+      type: object
+      required: [agents]
+      properties:
+        agents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Agent'
+    TaskResponse:
+      type: object
+      required: [task]
+      properties:
+        task:
+          $ref: '#/components/schemas/Task'
+    AgentResponse:
+      type: object
+      required: [agent]
+      properties:
+        agent:
+          $ref: '#/components/schemas/Agent'
+    Resources:
+      type: object
+      required: [cpu_cores, ram_mb, slots]
+      properties:
+        cpu_cores:
+          type: integer
+          minimum: 1
+        ram_mb:
+          type: integer
+          minimum: 1
+        slots:
+          type: integer
+          minimum: 1
+    TaskConstraints:
+      type: object
+      properties:
+        os:
+          type: string
+          enum: [linux, windows]
+        cpu_cores:
+          type: integer
+          minimum: 1
+        ram_mb:
+          type: integer
+          minimum: 1
+        labels:
+          type: array
+          items:
+            type: string
+    TaskAssignment:
+      type: object
+      required: [task_id, command]
+      properties:
+        task_id:
+          type: string
+        command:
+          type: string
+        args:
+          type: array
+          items:
+            type: string
+        env:
+          type: object
+          additionalProperties:
+            type: string
+        timeout_sec:
+          type: integer
+          minimum: 1
+        constraints:
+          $ref: '#/components/schemas/TaskConstraints'
+    Task:
+      type: object
+      required: [task_id, state, command, created_at]
+      properties:
+        task_id:
+          type: string
+        state:
+          type: string
+          enum: [queued, running, succeeded, failed, canceled]
+        command:
+          type: string
+        args:
+          type: array
+          items:
+            type: string
+        env:
+          type: object
+          additionalProperties:
+            type: string
+        timeout_sec:
+          type: integer
+          minimum: 1
+        constraints:
+          $ref: '#/components/schemas/TaskConstraints'
+        assigned_agent:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+        exit_code:
+          type: integer
+        error_message:
+          type: string
+    Agent:
+      type: object
+      required: [agent_id, os, version, resources, status, last_heartbeat]
+      properties:
+        agent_id:
+          type: string
+        os:
+          type: string
+          enum: [linux, windows]
+        version:
+          type: string
+        resources:
+          $ref: '#/components/schemas/Resources'
+        status:
+          type: string
+          enum: [idle, busy, offline]
+        last_heartbeat:
+          type: string
+          format: date-time

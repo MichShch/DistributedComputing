@@ -56,12 +56,33 @@ std::string LogStore::RootDir() const {
     return root_dir_;
 }
 
+bool LogStore::IsPathWithinRoot(const std::string& path) const {
+    std::error_code ec;
+    fs::path root = fs::weakly_canonical(root_dir_, ec);
+    if (ec) {
+        return false;
+    }
+    fs::path candidate = fs::weakly_canonical(path, ec);
+    if (ec) {
+        return false;
+    }
+    auto root_it = root.begin();
+    auto cand_it = candidate.begin();
+    for (; root_it != root.end() && cand_it != candidate.end(); ++root_it, ++cand_it) {
+        if (*root_it != *cand_it) {
+            return false;
+        }
+    }
+    return root_it == root.end();
+}
+
 LogStore::Paths LogStore::PathsForTask(const std::string& task_id) const {
     Paths paths;
-    paths.dir = root_dir_ + "/" + task_id;
-    paths.stdout_path = paths.dir + "/stdout.log";
-    paths.stderr_path = paths.dir + "/stderr.log";
-    paths.meta_path = paths.dir + "/meta.json";
+    fs::path dir = fs::path(root_dir_) / task_id;
+    paths.dir = dir.string();
+    paths.stdout_path = (dir / "stdout.log").string();
+    paths.stderr_path = (dir / "stderr.log").string();
+    paths.meta_path = (dir / "meta.json").string();
     return paths;
 }
 
@@ -106,6 +127,10 @@ void LogStore::RefreshMetadata(const std::string& task_id,
 LogStore::ReadResult LogStore::ReadAll(const std::string& task_id,
                                        const std::string& stream) {
     const auto paths = PathsForTask(task_id);
+    if (!IsPathWithinRoot(paths.dir) || !IsPathWithinRoot(paths.stdout_path) ||
+        !IsPathWithinRoot(paths.stderr_path) || !IsPathWithinRoot(paths.meta_path)) {
+        return LogStore::ReadResult{};
+    }
     EnsureLogDir(paths.dir);
     const std::string& target =
         (stream == "stderr") ? paths.stderr_path : paths.stdout_path;
@@ -119,6 +144,10 @@ LogStore::ReadResult LogStore::ReadFromOffset(const std::string& task_id,
                                               const std::string& stream,
                                               std::uint64_t offset) {
     const auto paths = PathsForTask(task_id);
+    if (!IsPathWithinRoot(paths.dir) || !IsPathWithinRoot(paths.stdout_path) ||
+        !IsPathWithinRoot(paths.stderr_path) || !IsPathWithinRoot(paths.meta_path)) {
+        return LogStore::ReadResult{};
+    }
     EnsureLogDir(paths.dir);
     const std::string& target =
         (stream == "stderr") ? paths.stderr_path : paths.stdout_path;
