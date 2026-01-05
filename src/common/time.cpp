@@ -5,6 +5,8 @@
 namespace dc {
 namespace common {
 
+namespace {
+
 std::string ToUtcIso8601(std::chrono::system_clock::time_point tp) {
     std::time_t raw = std::chrono::system_clock::to_time_t(tp);
     std::tm utc_tm{};
@@ -17,6 +19,8 @@ std::string ToUtcIso8601(std::chrono::system_clock::time_point tp) {
     std::strftime(buffer, sizeof(buffer), "%Y-%m-%dT%H:%M:%SZ", &utc_tm);
     return std::string(buffer);
 }
+
+}  // namespace
 
 std::string NowUtcIso8601() {
     return ToUtcIso8601(std::chrono::system_clock::now());

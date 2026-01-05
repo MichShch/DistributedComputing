@@ -103,6 +103,7 @@ def create_schema(conn):
                 command TEXT NOT NULL,
                 args JSONB NOT NULL,
                 env JSONB NOT NULL,
+                constraints JSONB NOT NULL DEFAULT '{}'::jsonb,
                 timeout_sec INT,
                 assigned_agent TEXT,
                 created_at TIMESTAMPTZ NOT NULL,
@@ -112,19 +113,6 @@ def create_schema(conn):
                 error_message TEXT,
                 CONSTRAINT tasks_assigned_agent_fk FOREIGN KEY (assigned_agent)
                     REFERENCES agents(agent_id)
-            )
-            """
-        )
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS task_constraints (
-                task_id TEXT PRIMARY KEY,
-                os TEXT,
-                cpu_cores INT,
-                ram_mb INT,
-                labels JSONB,
-                CONSTRAINT task_constraints_task_id_fk FOREIGN KEY (task_id)
-                    REFERENCES tasks(task_id) ON DELETE CASCADE
             )
             """
         )
@@ -156,7 +144,7 @@ def create_schema(conn):
         )
         cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_created_at ON tasks(created_at)")
         cur.execute(
-            "CREATE INDEX IF NOT EXISTS idx_task_constraints_os ON task_constraints(os)"
+            "CREATE INDEX IF NOT EXISTS idx_tasks_constraints ON tasks USING GIN (constraints)"
         )
         cur.execute(
             "CREATE INDEX IF NOT EXISTS idx_task_assignments_task_id_assigned_at "
@@ -201,6 +189,7 @@ def expected_schema():
                     "command": ("text", False),
                     "args": ("jsonb", False),
                     "env": ("jsonb", False),
+                    "constraints": ("jsonb", False),
                     "timeout_sec": ("integer", True),
                     "assigned_agent": ("text", True),
                     "created_at": ("timestamp with time zone", False),
@@ -217,22 +206,7 @@ def expected_schema():
                     "idx_tasks_state_created_at": ["state", "created_at"],
                     "idx_tasks_assigned_agent": ["assigned_agent"],
                     "idx_tasks_created_at": ["created_at"],
-                },
-            },
-            "task_constraints": {
-                "columns": {
-                    "task_id": ("text", False),
-                    "os": ("text", True),
-                    "cpu_cores": ("integer", True),
-                    "ram_mb": ("integer", True),
-                    "labels": ("jsonb", True),
-                },
-                "primary_key": ["task_id"],
-                "foreign_keys": [
-                    ("task_id", "tasks", "task_id", "CASCADE"),
-                ],
-                "indexes": {
-                    "idx_task_constraints_os": ["os"],
+                    "idx_tasks_constraints": ["constraints"],
                 },
             },
             "task_assignments": {
@@ -262,6 +236,72 @@ def expected_schema():
             },
         },
     }
+
+
+def table_exists(conn, table):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = %s
+            """,
+            (table,),
+        )
+        return cur.fetchone() is not None
+
+
+def column_exists(conn, table, column):
+    with conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT 1
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = %s
+              AND column_name = %s
+            """,
+            (table, column),
+        )
+        return cur.fetchone() is not None
+
+
+def migrate_task_constraints(conn):
+    changed = False
+    if table_exists(conn, "tasks") and not column_exists(conn, "tasks", "constraints"):
+        with conn.cursor() as cur:
+            cur.execute(
+                "ALTER TABLE tasks ADD COLUMN constraints JSONB NOT NULL DEFAULT '{}'::jsonb"
+            )
+        changed = True
+        if table_exists(conn, "task_constraints"):
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    UPDATE tasks t
+                    SET constraints = jsonb_strip_nulls(
+                        jsonb_build_object(
+                            'os', c.os,
+                            'cpu_cores', c.cpu_cores,
+                            'ram_mb', c.ram_mb,
+                            'labels', c.labels
+                        )
+                    )
+                    FROM task_constraints c
+                    WHERE t.task_id = c.task_id
+                    """
+                )
+            changed = True
+
+    if table_exists(conn, "tasks") and column_exists(conn, "tasks", "constraints"):
+        with conn.cursor() as cur:
+            cur.execute(
+                "CREATE INDEX IF NOT EXISTS idx_tasks_constraints ON tasks USING GIN (constraints)"
+            )
+        changed = True
+
+    if changed:
+        conn.commit()
 
 
 def fetch_enums(conn):
@@ -514,6 +554,7 @@ def main():
 
     target_conn = connect_db(params, params["dbname"])
     try:
+        migrate_task_constraints(target_conn)
         diffs = compare_schema(target_conn)
         if diffs:
             print("Найдены различия схемы:")

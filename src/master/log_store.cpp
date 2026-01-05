@@ -127,27 +127,12 @@ void LogStore::RefreshMetadata(const std::string& task_id,
 
 LogStore::ReadResult LogStore::ReadAll(const std::string& task_id,
                                        const std::string& stream) {
-    const auto paths = PathsForTask(task_id);
-    if (!IsPathWithinRoot(paths.dir) || !IsPathWithinRoot(paths.stdout_path) ||
-        !IsPathWithinRoot(paths.stderr_path) || !IsPathWithinRoot(paths.meta_path)) {
-        spdlog::warn("Rejected log path for task {}", task_id);
-        return LogStore::ReadResult{};
-    }
-    EnsureLogDir(paths.dir);
-    const std::string& target =
-        (stream == "stderr") ? paths.stderr_path : paths.stdout_path;
-
-    auto result = ReadFileInternal(target, 0);
-    if (result.exists) {
-        spdlog::debug("Read log {} stream={} size_bytes={}", task_id, stream, result.size_bytes);
-    }
-    RefreshMetadata(task_id, paths.stdout_path, paths.stderr_path, paths.meta_path);
-    return result;
+    return ReadInternal(task_id, stream, 0);
 }
 
-LogStore::ReadResult LogStore::ReadFromOffset(const std::string& task_id,
-                                              const std::string& stream,
-                                              std::uint64_t offset) {
+LogStore::ReadResult LogStore::ReadInternal(const std::string& task_id,
+                                            const std::string& stream,
+                                            std::uint64_t offset) {
     const auto paths = PathsForTask(task_id);
     if (!IsPathWithinRoot(paths.dir) || !IsPathWithinRoot(paths.stdout_path) ||
         !IsPathWithinRoot(paths.stderr_path) || !IsPathWithinRoot(paths.meta_path)) {
@@ -160,14 +145,27 @@ LogStore::ReadResult LogStore::ReadFromOffset(const std::string& task_id,
 
     auto result = ReadFileInternal(target, offset);
     if (result.exists) {
-        spdlog::debug("Read log tail {} stream={} from={} size_bytes={}",
-                      task_id,
-                      stream,
-                      offset,
-                      result.size_bytes);
+        if (offset == 0) {
+            spdlog::debug("Read log {} stream={} size_bytes={}",
+                          task_id,
+                          stream,
+                          result.size_bytes);
+        } else {
+            spdlog::debug("Read log tail {} stream={} from={} size_bytes={}",
+                          task_id,
+                          stream,
+                          offset,
+                          result.size_bytes);
+        }
     }
     RefreshMetadata(task_id, paths.stdout_path, paths.stderr_path, paths.meta_path);
     return result;
+}
+
+LogStore::ReadResult LogStore::ReadFromOffset(const std::string& task_id,
+                                              const std::string& stream,
+                                              std::uint64_t offset) {
+    return ReadInternal(task_id, stream, offset);
 }
 
 }  // namespace master

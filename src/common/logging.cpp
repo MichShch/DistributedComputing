@@ -1,13 +1,13 @@
 #include "logging.h"
 
-#include <algorithm>
-#include <cctype>
 #include <filesystem>
 #include <iostream>
 #include <vector>
 
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_sinks.h>
+
+#include "string_utils.h"
 
 namespace fs = std::filesystem;
 
@@ -19,9 +19,7 @@ spdlog::level::level_enum ParseLogLevel(const std::string& value,
     if (value.empty()) {
         return fallback;
     }
-    std::string lower = value;
-    std::transform(lower.begin(), lower.end(), lower.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    std::string lower = ToLowerCopy(value);
 
     if (lower == "trace") {
         return spdlog::level::trace;

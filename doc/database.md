@@ -6,7 +6,6 @@
 ## 2. Основные сущности
 - agents: зарегистрированные агенты и их ресурсы.
 - tasks: задачи и их жизненный цикл.
-- task_constraints: ограничения задач для планировщика.
 - task_assignments: история назначений задач агентам.
 
 ## 3. Типы (ENUM)
@@ -32,6 +31,7 @@
 - command (text)
 - args (jsonb) — массив строк
 - env (jsonb) — map<string,string>
+- constraints (jsonb) — объект ограничений (os/cpu_cores/ram_mb/labels)
 - timeout_sec (int, nullable)
 - assigned_agent (text, FK -> agents.agent_id, nullable)
 - created_at (timestamptz)
@@ -40,14 +40,7 @@
 - exit_code (int, nullable)
 - error_message (text, nullable)
 
-### 4.3 task_constraints
-- task_id (PK, FK -> tasks.task_id)
-- os (text, nullable)
-- cpu_cores (int, nullable)
-- ram_mb (int, nullable)
-- labels (jsonb) — массив строк
-
-### 4.4 task_assignments
+### 4.3 task_assignments
 - id (bigserial, PK)
 - task_id (FK -> tasks.task_id)
 - agent_id (FK -> agents.agent_id)
@@ -62,13 +55,12 @@
 - tasks(state, created_at)
 - tasks(assigned_agent)
 - tasks(created_at)
-- task_constraints(os)
+- tasks(constraints) [GIN]
 - task_assignments(task_id, assigned_at)
 - task_assignments(agent_id, assigned_at)
 
 ## 6. Связи и целостность
 - tasks.assigned_agent -> agents.agent_id (nullable)
-- task_constraints.task_id -> tasks.task_id (ON DELETE CASCADE)
 - task_assignments.task_id -> tasks.task_id (ON DELETE CASCADE)
 - task_assignments.agent_id -> agents.agent_id
 

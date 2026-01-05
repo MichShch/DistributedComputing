@@ -1,4 +1,5 @@
 add_executable(dc_master
+    api_mappers.cpp
     control_service.cpp
     main.cpp
     storage.cpp

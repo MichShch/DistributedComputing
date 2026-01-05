@@ -38,6 +38,10 @@ private:
         std::string meta_path;
     };
 
+    ReadResult ReadInternal(const std::string& task_id,
+                            const std::string& stream,
+                            std::uint64_t offset);
+
     bool IsPathWithinRoot(const std::string& path) const;
     Paths PathsForTask(const std::string& task_id) const;
     void EnsureLogDir(const std::string& dir) const;

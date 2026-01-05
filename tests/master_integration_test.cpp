@@ -283,8 +283,7 @@ public:
 
     void ClearAll() {
         pqxx::work tx(conn_);
-        tx.exec("TRUNCATE task_assignments, task_constraints, tasks, agents "
-                "RESTART IDENTITY CASCADE");
+        tx.exec("TRUNCATE task_assignments, tasks, agents RESTART IDENTITY CASCADE");
         tx.commit();
     }
 
@@ -400,7 +399,7 @@ public:
     std::optional<std::string> GetConstraintOs(const std::string& task_id) {
         pqxx::work tx(conn_);
         auto result = tx.exec_params(
-            "SELECT os FROM task_constraints WHERE task_id = $1", task_id);
+            "SELECT constraints->>'os' FROM tasks WHERE task_id = $1", task_id);
         tx.commit();
         if (result.empty() || result[0][0].is_null()) {
             return std::nullopt;
@@ -411,7 +410,7 @@ public:
     std::optional<int> GetConstraintCpu(const std::string& task_id) {
         pqxx::work tx(conn_);
         auto result = tx.exec_params(
-            "SELECT cpu_cores FROM task_constraints WHERE task_id = $1", task_id);
+            "SELECT (constraints->>'cpu_cores')::int FROM tasks WHERE task_id = $1", task_id);
         tx.commit();
         if (result.empty() || result[0][0].is_null()) {
             return std::nullopt;

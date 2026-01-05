@@ -6,6 +6,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "status.h"
+
 namespace dc {
 namespace master {
 
@@ -29,7 +31,7 @@ struct AgentInput {
 
 struct AgentHeartbeat {
     std::string agent_id;
-    std::string status;
+    AgentStatus status = AgentStatus::Idle;
 };
 
 struct AgentRecord {
@@ -39,7 +41,7 @@ struct AgentRecord {
     int cpu_cores = 0;
     int ram_mb = 0;
     int slots = 0;
-    std::string status;
+    AgentStatus status = AgentStatus::Idle;
     std::string last_heartbeat;
 };
 
@@ -54,7 +56,7 @@ struct TaskInput {
 
 struct TaskRecord {
     std::string task_id;
-    std::string state;
+    TaskState state = TaskState::Queued;
     std::string command;
     nlohmann::json args;
     nlohmann::json env;
@@ -70,7 +72,7 @@ struct TaskRecord {
 
 struct TaskSummary {
     std::string task_id;
-    std::string state;
+    TaskState state = TaskState::Queued;
 };
 
 struct TaskDispatch {
@@ -103,13 +105,13 @@ public:
     bool UpdateHeartbeat(const AgentHeartbeat& heartbeat);
 
     std::optional<AgentRecord> GetAgent(const std::string& agent_id);
-    std::vector<AgentRecord> ListAgents(const std::optional<std::string>& status,
+    std::vector<AgentRecord> ListAgents(const std::optional<AgentStatus>& status,
                                         int limit,
                                         int offset);
 
     CreateTaskResult CreateTask(const TaskInput& task);
     std::optional<TaskRecord> GetTask(const std::string& task_id);
-    std::vector<TaskSummary> ListTasks(const std::optional<std::string>& state,
+    std::vector<TaskSummary> ListTasks(const std::optional<TaskState>& state,
                                        const std::optional<std::string>& agent_id,
                                        int limit,
                                        int offset);
@@ -119,7 +121,7 @@ public:
                                                                int free_slots);
 
     bool UpdateTaskStatus(const std::string& task_id,
-                          const std::string& state,
+                          TaskState state,
                           const std::optional<int>& exit_code,
                           const std::optional<std::string>& started_at,
                           const std::optional<std::string>& finished_at,
@@ -132,11 +134,6 @@ public:
 
 private:
     std::string ConnectionString() const;
-    nlohmann::json SafeParseJson(const std::string& raw, const nlohmann::json& fallback) const;
-    std::string DbAgentStatusFromApi(const std::string& status) const;
-    std::string DbTaskStateFromApi(const std::string& state) const;
-    std::string ApiAgentStatusFromDb(const std::string& status) const;
-    std::string ApiTaskStateFromDb(const std::string& state) const;
 
     DbConfig config_;
 };

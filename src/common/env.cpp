@@ -5,6 +5,8 @@
 namespace dc {
 namespace common {
 
+namespace {
+
 std::optional<std::string> GetEnv(const char* key) {
     if (!key) {
         return std::nullopt;
@@ -15,6 +17,8 @@ std::optional<std::string> GetEnv(const char* key) {
     }
     return std::string(value);
 }
+
+}  // namespace
 
 std::string GetEnvOrDefault(const char* key, const std::string& default_value) {
     auto value = GetEnv(key);
