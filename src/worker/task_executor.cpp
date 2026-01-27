@@ -12,7 +12,7 @@
 #include <spdlog/spdlog.h>
 
 #if defined(_WIN32)
-#include <Windows.h>
+#include <windows.h>
 #else
 #include <cerrno>
 #include <csignal>

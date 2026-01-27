@@ -62,6 +62,31 @@ set_tests_properties(master_integration_test PROPERTIES
         "DC_MASTER_BIN=$<TARGET_FILE:dc_master>;DC_TEST_ENV_FILE=${PROJECT_SOURCE_DIR}/configs/master.env"
 )
 
+add_executable(worker_integration_test
+    worker_integration_test.cpp
+)
+
+target_include_directories(worker_integration_test
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/third_party
+        ${PQXX_INCLUDE_DIRS}
+)
+
+target_link_libraries(worker_integration_test
+    PRIVATE
+        GTest::gtest
+        ${PQXX_TARGET}
+)
+
+add_dependencies(worker_integration_test dc_master dc_worker)
+
+add_test(NAME worker_integration_test COMMAND worker_integration_test)
+set_tests_properties(worker_integration_test PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    ENVIRONMENT
+        "DC_MASTER_BIN=$<TARGET_FILE:dc_master>;DC_WORKER_BIN=$<TARGET_FILE:dc_worker>;DC_TEST_ENV_FILE=${PROJECT_SOURCE_DIR}/configs/master.env"
+)
+
 add_executable(common_unit_tests
     common_tests.cpp
 )
@@ -99,3 +124,82 @@ target_link_libraries(master_unit_tests
 )
 
 add_test(NAME master_unit_tests COMMAND master_unit_tests)
+
+add_executable(cli_integration_test
+    cli_integration_test.cpp
+    ${PROJECT_SOURCE_DIR}/src/cli/api_client.cpp
+    ${PROJECT_SOURCE_DIR}/src/cli/formatters.cpp
+)
+
+target_include_directories(cli_integration_test
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party
+        ${PQXX_INCLUDE_DIRS}
+)
+
+target_compile_definitions(cli_integration_test
+    PRIVATE
+        DC_CLI_DISABLE_MAIN
+)
+
+target_link_libraries(cli_integration_test
+    PRIVATE
+        GTest::gtest_main
+        dc_common
+        ${PQXX_TARGET}
+)
+
+add_dependencies(cli_integration_test dc_master)
+
+add_test(NAME cli_integration_test COMMAND cli_integration_test)
+set_tests_properties(cli_integration_test PROPERTIES
+    WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    ENVIRONMENT
+        "DC_MASTER_BIN=$<TARGET_FILE:dc_master>;DC_TEST_ENV_FILE=${PROJECT_SOURCE_DIR}/configs/master.env"
+)
+
+add_executable(cli_unit_tests
+    cli_tests.cpp
+    ${PROJECT_SOURCE_DIR}/src/cli/formatters.cpp
+)
+
+target_include_directories(cli_unit_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party
+)
+
+target_compile_definitions(cli_unit_tests
+    PRIVATE
+        DC_CLI_DISABLE_MAIN
+)
+
+target_link_libraries(cli_unit_tests
+    PRIVATE
+        GTest::gtest_main
+        dc_common
+)
+
+add_test(NAME cli_unit_tests COMMAND cli_unit_tests)
+
+add_executable(worker_unit_tests
+    worker_tests.cpp
+    ${PROJECT_SOURCE_DIR}/src/worker/agent_client.cpp
+    ${PROJECT_SOURCE_DIR}/src/worker/task_executor.cpp
+    ${PROJECT_SOURCE_DIR}/src/worker/worker_app.cpp
+)
+
+target_include_directories(worker_unit_tests
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src
+        ${PROJECT_SOURCE_DIR}/third_party
+)
+
+target_link_libraries(worker_unit_tests
+    PRIVATE
+        GTest::gmock_main
+        dc_common
+)
+
+add_test(NAME worker_unit_tests COMMAND worker_unit_tests)
