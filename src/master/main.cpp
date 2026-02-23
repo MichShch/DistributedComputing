@@ -144,6 +144,8 @@ bool IsCommandNotFound(int code) {
 int RunInitDbScript() {
     const std::string config_path = dc::common::GetEnvOrDefault("DB_CONFIG", "");
     const std::string preferred_python = dc::common::GetEnvOrDefault("INIT_DB_PYTHON", "");
+    const std::string init_db_script =
+        dc::common::GetEnvOrDefault("INIT_DB_SCRIPT", "scripts/init_db.py");
 
     std::vector<std::string> candidates;
     if (!preferred_python.empty()) {
@@ -154,7 +156,7 @@ int RunInitDbScript() {
     }
 
     for (const auto& python_cmd : candidates) {
-        std::string command = python_cmd + " scripts/init_db.py";
+        std::string command = python_cmd + " \"" + init_db_script + "\"";
         if (!config_path.empty()) {
             command += " --config \"" + config_path + "\"";
         }

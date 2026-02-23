@@ -51,6 +51,7 @@ Master service:
 - `OFFLINE_SEC` (default: `120`)
 - `MAX_LOG_UPLOAD_BYTES` (default: `10485760`, limit на размер загружаемого лога от агента)
 - `INIT_DB_PYTHON` (optional python executable override for init_db)
+- `INIT_DB_SCRIPT` (optional path to DB init script, default: `scripts/init_db.py`)
 
 Worker service:
 - `UPLOAD_LOGS` (default: `true`)
@@ -88,7 +89,8 @@ export DB_CONFIG=configs/db.env
 ./build/src/master/dc_master
 ```
 
-On startup the Master runs `scripts/init_db.py`. If schema differences are detected, the script prints
+On startup the Master runs script from `INIT_DB_SCRIPT` (default: `scripts/init_db.py`).
+If schema differences are detected, the script prints
 diffs and Master exits with code `4`.
 
 ## Example env for Master
