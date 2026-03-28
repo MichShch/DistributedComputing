@@ -13,6 +13,7 @@
 
 #if defined(_WIN32)
 #include <windows.h>
+#include <winsock.h>
 #else
 #include <csignal>
 #include <netinet/in.h>
@@ -52,7 +53,12 @@ int BindEphemeral(int preferred, std::string* error) {
         return 0;
     }
 
-    socklen_t len = sizeof(addr);
+#if defined(_WIN32)
+    int len;
+#else
+    socken_t len;
+#endif
+    len = sizeof(addr);
     if (getsockname(sock, reinterpret_cast<sockaddr*>(&addr), &len) != 0) {
         if (error) *error = "getsockname() failed";
 #if defined(_WIN32)

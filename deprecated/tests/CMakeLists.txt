@@ -51,6 +51,7 @@ target_link_libraries(master_integration_test
     PRIVATE
         GTest::gtest
         ${PQXX_TARGET}
+        dc_common
 )
 
 add_dependencies(master_integration_test dc_master)
@@ -76,6 +77,7 @@ target_link_libraries(worker_integration_test
     PRIVATE
         GTest::gtest
         ${PQXX_TARGET}
+        dc_common
 )
 
 add_dependencies(worker_integration_test dc_master dc_worker)

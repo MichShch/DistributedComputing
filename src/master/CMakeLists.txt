@@ -1,17 +1,21 @@
-add_executable(dc_master
-    api_mappers.cpp
-    control_service.cpp
-    main.cpp
-    storage.cpp
-    log_store.cpp
+cmake_minimum_required(VERSION 4.0)
+
+project(
+    dc_master
+    VERSION 1.0
+    LANGUAGES CXX
 )
 
-target_include_directories(dc_master
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/..
-        ${CMAKE_CURRENT_SOURCE_DIR}/../../third_party
-)
+file(GLOB_RECURSE PROJECT_SRC CONFIGURE_DEPENDS "*.cpp")
+set(PROJECT_INC "dc_common")
+set(PROJECT_LIB "dc_common")
+
+list(APPEND PROJECT_INC ${CMAKE_CURRENT_SOURCE_DIR})
+list(APPEND PROJECT_INC ${CMAKE_CURRENT_SOURCE_DIR}/..)
+
+add_executable(${PROJECT_NAME} ${PROJECT_SRC})
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INC})
 
 find_package(Threads REQUIRED)
 
@@ -45,9 +49,7 @@ if(NOT PQXX_TARGET)
     message(FATAL_ERROR "libpqxx not found. Install libpqxx and libpq-dev (Linux) or build/install libpqxx (Windows).")
 endif()
 
-target_link_libraries(dc_master
-    PRIVATE
-        dc_common
-        Threads::Threads
-        ${PQXX_TARGET}
-)
+list(APPEND PROJECT_LIB Threads::Threads)
+list(APPEND PROJECT_LIB ${PQXX_TARGET})
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_LIB})

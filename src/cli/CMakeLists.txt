@@ -1,17 +1,20 @@
-add_executable(dc_cli
-    api_client.cpp
-    formatters.cpp
-    main.cpp
+cmake_minimum_required(VERSION 4.0)
+
+project(
+    dc_cli
+    VERSION 1.0
+    LANGUAGES CXX
 )
 
-target_include_directories(dc_cli
-    PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}
-        ${CMAKE_CURRENT_SOURCE_DIR}/..
-        ${PROJECT_SOURCE_DIR}/third_party
-)
+file(GLOB_RECURSE PROJECT_SRC CONFIGURE_DEPENDS "*.cpp")
+set(PROJECT_INC "dc_common")
+set(PROJECT_LIB "dc_common")
 
-target_link_libraries(dc_cli
-    PRIVATE
-        dc_common
-)
+list(APPEND PROJECT_INC ${CMAKE_CURRENT_SOURCE_DIR})
+list(APPEND PROJECT_INC ${CMAKE_CURRENT_SOURCE_DIR}/..)
+
+add_executable(${PROJECT_NAME} ${PROJECT_SRC})
+
+target_include_directories(${PROJECT_NAME} PRIVATE ${PROJECT_INC})
+
+target_link_libraries(${PROJECT_NAME} PRIVATE ${PROJECT_LIB})
