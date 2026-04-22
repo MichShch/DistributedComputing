@@ -1,4 +1,4 @@
-#include "ssh_tunnel.h"
+#include "ssh_tunnel.hpp"
 
 #include <array>
 #include <chrono>
@@ -56,7 +56,7 @@ int BindEphemeral(int preferred, std::string* error) {
 #if defined(_WIN32)
     int len;
 #else
-    socken_t len;
+    socklen_t len;
 #endif
     len = sizeof(addr);
     if (getsockname(sock, reinterpret_cast<sockaddr*>(&addr), &len) != 0) {
@@ -130,7 +130,7 @@ bool SshTunnel::Start(std::string* error) {
     }
 
     std::vector<std::string> args;
-    args.push_back(config_.ssh_path.empty() ? "ssh" : config_.ssh_path);
+    args.push_back(config_.ssh_path.empty() ? "sshpp" : config_.ssh_path);
     args.push_back("-N");
 
     // Keep-alive

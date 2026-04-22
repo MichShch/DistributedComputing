@@ -1,11 +1,12 @@
-#include "api_mappers.h"
+#include "api_mappers.hpp"
 
 #include <cctype>
 #include <limits>
 
-#include "status.h"
+#include "broker/status.hpp"
 
 namespace dc {
+using namespace broker;
 namespace master {
 namespace api {
 

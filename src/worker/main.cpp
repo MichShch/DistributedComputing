@@ -4,7 +4,7 @@
 #include <optional>
 #include <string>
 
-#include "worker_app.h"
+#include "worker_app.hpp"
 
 namespace {
 

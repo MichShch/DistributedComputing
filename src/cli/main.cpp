@@ -9,11 +9,13 @@
 #include <utility>
 #include <vector>
 
+#include <unistd.h>
+
 #include <nlohmann/json.hpp>
 
-#include "api_client.h"
-#include "common/env.h"
-#include "formatters.h"
+#include "api_client.hpp"
+#include "common/env.hpp"
+#include "formatters.hpp"
 
 namespace dc {
 namespace cli {
@@ -25,6 +27,8 @@ struct GlobalOptions {
     std::string host;
     int port = 8080;
     int timeout_ms = 5000;
+    int retries = 10;
+    int retries_timeout = 5;
     bool json_output = false;
     bool verbose = false;
     bool help = false;
@@ -194,6 +198,34 @@ bool ParseGlobalOptions(const std::vector<std::string>& args,
             out->port = *parsed;
             continue;
         }
+        if (ConsumeOptionValue(args, &i, "--retries", &value, error)) {
+            if (error && !error->empty()) {
+                return false;
+            }
+            auto parsed = ParseInt(value);
+            if (!parsed || *parsed <= 0) {
+                if (error) {
+                    *error = "Invalid retries: " + value;
+                }
+                return false;
+            }
+            out->retries = *parsed;
+            continue;
+        }
+        if (ConsumeOptionValue(args, &i, "--retries-timeout", &value, error)) {
+            if (error && !error->empty()) {
+                return false;
+            }
+            auto parsed = ParseInt(value);
+            if (!parsed || *parsed <= 0) {
+                if (error) {
+                    *error = "Invalid retries-timeout: " + value;
+                }
+                return false;
+            }
+            out->retries_timeout = *parsed;
+            continue;
+        }
         if (ConsumeOptionValue(args, &i, "--timeout-ms", &value, error)) {
             if (error && !error->empty()) {
                 return false;
@@ -242,6 +274,8 @@ void PrintUsage() {
         << "  --host <host>          Master host (default: env MASTER_HOST)\n"
         << "  --port <port>          Master port (default: env MASTER_PORT)\n"
         << "  --timeout-ms <ms>      HTTP timeout in milliseconds (default: 5000)\n"
+        << "  --retries <times>      Retries if connection faiiled (default: 10)\n"
+        << "  --retries-timeout <s>  Retries cooldown if connection faiiled (default: 5)\n"
         << "  --json                 Print JSON responses as-is\n"
         << "  --verbose              Print request info to stderr\n"
         << "  -h, --help             Show help\n\n"
@@ -256,6 +290,7 @@ void PrintUsage() {
         << "Agents commands:\n"
         << "  agents list|ls [--status idle|busy|offline] [--limit N] [--offset N]\n"
         << "  agents get|show <agent_id>\n";
+    std::cout.flush();
 }
 
 int ExitCodeForStatus(int status) {
@@ -1044,13 +1079,29 @@ int main(int argc, char** argv) {
     std::vector<std::string> command_args(rest.begin() + 1, rest.end());
 
     std::string base_url = BuildBaseUrl(options);
-    ApiClient client(base_url, options.timeout_ms);
+    bool failed = false;
 
-    if (top == "tasks" || top == "task") {
-        return HandleTasks(client, options, command_args);
+    for(int attempt = 0; attempt < options.retries; attempt++) {
+        failed = false;
+        ApiClient client(base_url, options.timeout_ms);
+        int res;
+        if (top == "tasks" || top == "task") {
+            res = HandleTasks(client, options, command_args);
+        }
+        if (top == "agents" || top == "agent") {
+            res = HandleAgents(client, options, command_args);
+        }
+        if(!res) {
+            return 0;
+        }
+        std::cout << "Attempt " << attempt + 1 << " failed" << std::endl;
+        failed = true;
+        sleep(options.retries_timeout);
     }
-    if (top == "agents" || top == "agent") {
-        return HandleAgents(client, options, command_args);
+
+    if(failed) {
+        std::cerr << "Connection retries failed";
+        return 1;
     }
 
     std::cerr << "Unknown command: " << top << '\n';

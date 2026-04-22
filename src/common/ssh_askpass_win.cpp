@@ -1,3 +1,4 @@
+#if defined(_WIN32)
 #include <windows.h>
 #include <array>
 
@@ -21,3 +22,4 @@ int WINAPI wWinMain(HINSTANCE, HINSTANCE, PWSTR, int) {
     }
     return 0;
 }
+#endif

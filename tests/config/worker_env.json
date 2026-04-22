@@ -1,0 +1,12 @@
+{
+    "AGENT_ID": 0,
+    "AGENT_OS": "linux",
+    "AGENT_VERSION": "1.0",
+    "CPU_CORES": "2",
+    "RAM_MB": "256",
+    "SLOTS": "1",
+    "WORKER_LOG_DIR": "Testing/log/worker",
+    "WORKER_LOG_FILE": "Testing/log/worker/worker.log",
+    "WORKER_LOG_LEVEL": "debug",
+    "CANCEL_CHECK_SEC": "1"
+}

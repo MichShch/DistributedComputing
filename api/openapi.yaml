@@ -294,6 +294,12 @@ paths:
           $ref: '#/components/responses/ErrorResponse'
         '404':
           $ref: '#/components/responses/ErrorResponse'
+  /health:
+    get:
+      summary: Responds if the server is running
+      responses:
+        '200':
+          description: The server is running
 components:
   parameters:
     AgentId:

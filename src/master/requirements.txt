@@ -1,0 +1,4 @@
+psycopg2
+yoyo-migrations
+pymongo
+mongodb-migrations

@@ -4644,7 +4644,7 @@ class exception : public std::exception
     }
 
   private:
-    /// an exception object as storage for error messages
+    /// an exception object as broker for error messages
     std::runtime_error m;
 #if JSON_DIAGNOSTIC_POSITIONS
     template<typename BasicJsonType>
@@ -20514,15 +20514,15 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
     }
 
     ////////////////////////
-    // JSON value storage //
+    // JSON value broker //
     ////////////////////////
 
   JSON_PRIVATE_UNLESS_TESTED:
     /*!
     @brief a JSON value
 
-    The actual storage for a JSON value of the @ref basic_json class. This
-    union combines the different storage types for the JSON value types
+    The actual broker for a JSON value of the @ref basic_json class. This
+    union combines the different broker types for the JSON value types
     defined in @ref value_t.
 
     JSON type | value_t type    | used type
@@ -20545,13 +20545,13 @@ class basic_json // NOLINT(cppcoreguidelines-special-member-functions,hicpp-spec
     */
     union json_value
     {
-        /// object (stored with pointer to save storage)
+        /// object (stored with pointer to save broker)
         object_t* object;
-        /// array (stored with pointer to save storage)
+        /// array (stored with pointer to save broker)
         array_t* array;
-        /// string (stored with pointer to save storage)
+        /// string (stored with pointer to save broker)
         string_t* string;
-        /// binary (stored with pointer to save storage)
+        /// binary (stored with pointer to save broker)
         binary_t* binary;
         /// boolean
         boolean_t boolean;

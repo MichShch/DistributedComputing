@@ -1,4 +1,4 @@
-#include "worker_app.h"
+#include "worker_app.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -11,9 +11,9 @@
 
 #include <spdlog/spdlog.h>
 
-#include "common/env.h"
-#include "common/logging.h"
-#include "common/time_utils.h"
+#include "common/env.hpp"
+#include "common/logging.hpp"
+#include "common/time_utils.hpp"
 
 namespace dc {
 namespace worker {
@@ -174,7 +174,8 @@ std::unique_ptr<WorkerApp> CreateWorkerAppFromEnv(std::string* error) {
 WorkerApp::WorkerApp(WorkerConfig config, std::unique_ptr<AgentClient> client)
     : config_(std::move(config)),
       client_(std::move(client)),
-      executor_(config_.log_dir) {}
+      executor_(config_.log_dir),
+      workerState_(WorkerState::IDLE) {}
 
 bool WorkerApp::Register() {
     AgentRegistration reg;
@@ -201,10 +202,27 @@ bool WorkerApp::Register() {
     return true;
 }
 
+std::string WorkerApp::translateWorkerState(const WorkerState &workerState) {
+    switch(workerState) {
+        case WorkerState::OFFLINE:
+            return "offline";
+        case WorkerState::IDLE:
+            return "idle";
+        case WorkerState::BUSY:
+            return "busy";
+        default:
+            throw std::runtime_error("Unexpected case");
+    }
+}
+
+std::string WorkerApp::getWorkerStateTranslated() const {
+    return translateWorkerState(workerState_);
+}
+
 void WorkerApp::TickOnce() {
-    const std::string status = "idle";
+    workerState_ = WorkerState::IDLE;
     std::string error;
-    if (!client_->SendHeartbeat(config_.agent_id, status, &error)) {
+    if (!client_->SendHeartbeat(config_.agent_id, getWorkerStateTranslated(), &error)) {
         spdlog::warn("Heartbeat failed: {}", error);
     } else {
         spdlog::debug("Heartbeat sent");
@@ -227,12 +245,14 @@ void WorkerApp::TickOnce() {
 
         if (task.constraints.contains("os") && task.constraints["os"].is_string()) {
             if (task.constraints["os"].get<std::string>() != config_.os) {
-                std::string msg = "OS constraint mismatch";
+                std::string msg = "OS constraint mismatchpp";
                 client_->UpdateTaskStatus(task.task_id, "failed", 1, std::nullopt,
                                           dc::common::NowUtcIso8601(), msg, &error);
                 continue;
             }
         }
+
+        workerState_ = WorkerState::BUSY;
 
         const auto started_at = dc::common::NowUtcIso8601();
         if (!client_->UpdateTaskStatus(task.task_id, "running", std::nullopt, started_at,
@@ -254,10 +274,19 @@ void WorkerApp::TickOnce() {
                 spdlog::warn("Cancel check failed for {}: {}", task.task_id, err);
                 return false;
             }
-            return state == "canceled";
+            spdlog::debug("State equals "+state);
+            return state == "canceled" || state == "queued";
+        };
+        auto doHeartbeat = [&]() -> void {
+            std::string error_task;
+            if (!client_->SendHeartbeat(config_.agent_id, getWorkerStateTranslated(), &error_task)) {
+                spdlog::warn("Heartbeat failed: {}", error_task);
+            } else {
+                spdlog::debug("Heartbeat sent");
+            }
         };
 
-        TaskExecutionResult exec = executor_.Run(task, is_canceled);
+        TaskExecutionResult exec = executor_.Run(task, is_canceled, doHeartbeat);
         std::string state = "failed";
         std::optional<int> exit_code = exec.exit_code;
         std::string error_message;
@@ -300,18 +329,19 @@ void WorkerApp::TickOnce() {
                 error_message += up_err;
             }
         }
-
-        if (!client_->UpdateTaskStatus(task.task_id,
-                                       state,
-                                       exit_code,
-                                       OptionalNonEmpty(started_at),
-                                       OptionalNonEmpty(exec.finished_at),
-                                       OptionalNonEmpty(error_message),
-                                       &error)) {
-            spdlog::warn("Failed to update task {} status: {}", task.task_id, error);
-        } else {
-            spdlog::info("Task {} completed: state={} exit_code={} log_dir={}",
-                         task.task_id, state, exec.exit_code, exec.stdout_path);
+        if (!exec.canceled) {
+            if (!client_->UpdateTaskStatus(task.task_id,
+                                        state,
+                                        exit_code,
+                                        OptionalNonEmpty(started_at),
+                                        OptionalNonEmpty(exec.finished_at),
+                                        OptionalNonEmpty(error_message),
+                                        &error)) {
+                spdlog::warn("Failed to update task {} status: {}", task.task_id, error);
+            } else {
+                spdlog::info("Task {} completed: state={} exit_code={} log_dir={}",
+                            task.task_id, state, exec.exit_code, exec.stdout_path);
+            }
         }
     }
 }

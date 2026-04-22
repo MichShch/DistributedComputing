@@ -1,0 +1,92 @@
+version: '3.0'
+services:
+#  broker:
+#    image: postgres:18.3-alpine3.23
+#    container_name: postgres-event
+#    restart: always
+#    environment:
+#      - POSTGRES_USER=${DB_USER}
+#      - POSTGRES_PASSWORD=${DB_PASSWORD}
+#      - POSTGRES_DB=${DB_NAME}
+#    networks:
+#     backend:
+#       ipv4_address: ${DB_HOST}
+#    ports:
+#      - "${DB_PORT}:${DB_PORT}" # Expose PostgreSQL on the default port
+  broker:
+    image: mongo:8.0
+    container_name: mongo-event
+    restart: always
+    ports:
+      - "${DB_PORT}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${DB_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${DB_PASSWORD}
+    networks:
+      - backend
+  master:
+    build:
+      context: .
+      target: master
+    image: master:latest 
+    container_name: master
+    restart: always
+    environment:
+      DB_BACKEND: ${DB_BACKEND}
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      PG_SSLMODE: ${PG_SSLMODE}
+      MASTER_HOST: 0.0.0.0
+      MASTER_PORT: ${MASTER_PORT}
+      LOG_DIR: ${LOG_DIR}
+      MASTER_LOG_FILE: ${MASTER_LOG_FILE}
+      MASTER_LOG_LEVEL: ${MASTER_LOG_LEVEL}
+      HEARTBEAT_SEC: ${HEARTBEAT_SEC}
+      OFFLINE_SEC: ${OFFLINE_SEC}
+      BROKER_RECONNECT_ATTEMPTS: ${BROKER_RECONNECT_ATTEMPTS}
+      BROKER_RECONNECT_COOLDOWN_SEC: ${BROKER_RECONNECT_COOLDOWN_SEC}
+      MAX_LOG_UPLOAD_BYTES: ${MAX_LOG_UPLOAD_BYTES}
+      INIT_DB_PYTHON: ${INIT_DB_PYTHON}
+      INIT_DB_SCRIPT: ${INIT_DB_SCRIPT}
+      MIGRATIONS_DIR: ${MIGRATIONS_DIR}
+      MONGO_MIGRATIONS_METASTORE: ${MONGO_MIGRATIONS_METASTORE}
+      MASTER_SKIP_DB_MIGRATION: ${MASTER_SKIP_DB_MIGRATION}
+    ports:
+      - "${MASTER_PORT}:${MASTER_PORT}"
+    networks:
+      - backend
+    depends_on:
+      - broker
+  worker:
+    build:
+      context: .
+      target: worker
+    image: worker:latest 
+    container_name: worker
+    restart: always
+    environment:
+      MASTER_URL: http://master:${MASTER_PORT}
+      AGENT_ID: ${AGENT_ID}
+      AGENT_OS: ${AGENT_OS}
+      AGENT_VERSION: ${AGENT_VERSION}
+      CPU_CORES: ${CPU_CORES}
+      RAM_MB: ${RAM_MB}
+      SLOTS: ${SLOTS}
+      WORKER_HTTP_TIMEOUT_MS: ${WORKER_HTTP_TIMEOUT_MS}
+      WORKER_LOG_DIR: ${WORKER_LOG_DIR}
+      CANCEL_CHECK_SEC: ${CANCEL_CHECK_SEC}
+      UPLOAD_LOGS: ${UPLOAD_LOGS}
+      MAX_UPLOAD_BYTES: ${MAX_UPLOAD_BYTES}
+      WORKER_LOG_LEVEL: ${WORKER_LOG_LEVEL}
+      WORKER_LOG_FILE: ${WORKER_LOG_FILE}
+    networks:
+      - backend
+    depends_on:
+      - master
+networks:
+  backend:
+    driver: bridge
+

@@ -1,4 +1,4 @@
-#include "log_store.h"
+#include "log_store.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -6,8 +6,8 @@
 
 #include <nlohmann/json.hpp>
 
-#include "common/logging.h"
-#include "common/time_utils.h"
+#include "common/logging.hpp"
+#include "common/time_utils.hpp"
 
 namespace dc {
 namespace master {
@@ -105,7 +105,7 @@ void LogStore::RefreshMetadata(const std::string& task_id,
     // Metadata is lightweight and refreshed on every log read to keep sizes current.
     auto add_entry = [&](const std::string& label, const std::string& path) {
         json entry;
-        entry["path"] = path;
+        entry["pathpp"] = path;
         entry["exists"] = fs::exists(path, ec);
         if (entry["exists"].get<bool>()) {
             entry["size_bytes"] = static_cast<std::uint64_t>(fs::file_size(path, ec));

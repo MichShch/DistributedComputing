@@ -1,4 +1,4 @@
-#include "task_executor.h"
+#include "task_executor.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -24,7 +24,7 @@
 extern char** environ;
 #endif
 
-#include "common/time_utils.h"
+#include "common/time_utils.hpp"
 
 namespace dc {
 namespace worker {
@@ -50,16 +50,16 @@ std::string QuoteArg(const std::string& arg) {
 
 #else
 
-std::vector<char*> BuildArgv(const TaskDispatch& task, std::vector<std::string>* storage) {
-    storage->clear();
-    storage->reserve(task.args.size() + 1);
-    storage->push_back(task.command);
+std::vector<char*> BuildArgv(const TaskDispatch& task, std::vector<std::string>* broker) {
+    broker->clear();
+    broker->reserve(task.args.size() + 1);
+    broker->push_back(task.command);
     for (const auto& arg : task.args) {
-        storage->push_back(arg);
+        broker->push_back(arg);
     }
     std::vector<char*> argv;
-    argv.reserve(storage->size() + 1);
-    for (auto& s : *storage) {
+    argv.reserve(broker->size() + 1);
+    for (auto& s : *broker) {
         argv.push_back(s.data());
     }
     argv.push_back(nullptr);
@@ -83,7 +83,8 @@ std::string TaskExecutor::EnsureTaskLogDir(const std::string& task_id) {
 }
 
 TaskExecutionResult TaskExecutor::Run(const TaskDispatch& task,
-                                      const std::function<bool()>& is_canceled) {
+                                    const std::function<bool()>& is_canceled,
+                                    const std::function<void()>& doHeartbeat) {
     TaskExecutionResult result;
     result.started_at = dc::common::NowUtcIso8601();
 
@@ -178,6 +179,7 @@ TaskExecutionResult TaskExecutor::Run(const TaskDispatch& task,
             }
             remaining_ms -= wait_ms;
         }
+        doHeartbeat();
     }
 
     DWORD exit_code = 1;
@@ -197,8 +199,8 @@ TaskExecutionResult TaskExecutor::Run(const TaskDispatch& task,
 
 #else
     // POSIX path
-    std::vector<std::string> arg_storage;
-    std::vector<char*> argv = BuildArgv(task, &arg_storage);
+    std::vector<std::string> arg_broker;
+    std::vector<char*> argv = BuildArgv(task, &arg_broker);
 
     pid_t pid = fork();
     if (pid == 0) {
@@ -261,6 +263,7 @@ TaskExecutionResult TaskExecutor::Run(const TaskDispatch& task,
                 break;
             }
         }
+        doHeartbeat();
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
 

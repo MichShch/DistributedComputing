@@ -1,4 +1,4 @@
-#include "logging.h"
+#include "logging.hpp"
 
 #include <filesystem>
 #include <iostream>
@@ -7,7 +7,7 @@
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_sinks.h>
 
-#include "string_utils.h"
+#include "string_utils.hpp"
 
 namespace fs = std::filesystem;
 
